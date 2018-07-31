@@ -218,7 +218,34 @@ void loop() {
 
     //Read the UV sensor
     uint16_t uv_val =  uv.readUV();
-    Serial.print("UV:"); Serial.println(uv_val);
+    //From the application note, with an Rset of 270k and a sampling of 4T
+    //This isn't a perfect translation from that application note, but probably close enough
+    uint8_t uv_index = 0;
+    if ( uv_val > 747 && uv_val < 1494 ) {
+      uv_index = 1;
+    } else if ( uv_val > 1493 && uv_val < 2241 ) {
+      uv_index = 2;
+    } else if ( uv_val > 2240 && uv_val < 2988 ) {
+      uv_index = 3;
+    } else if ( uv_val > 2987 && uv_val < 3735 ) {
+      uv_index = 4;
+    } else if ( uv_val > 3734 && uv_val < 4484 ) {
+      uv_index = 5;
+    } else if ( uv_val > 4483 && uv_val < 5229 ) {
+      uv_index = 6;
+    } else if ( uv_val > 5228 && uv_val < 5977 ) {
+      uv_index = 7;
+    } else if ( uv_val > 5976 && uv_val < 6723 ) {
+      uv_index = 8;
+    } else if ( uv_val > 6722 && uv_val < 7470 ) {
+      uv_index = 9;
+    } else if ( uv_val > 7469 && uv_val < 8217 ) {
+      uv_index = 10;
+    } else if ( uv_val > 8216 ) {
+      uv_index = 11;
+    }
+    
+    Serial.print("UV: "); Serial.print(uv_val); Serial.print(" Index: "); Serial.println(uv_index);
     
   
     //Initialize the payload
