@@ -5,6 +5,7 @@
 #include <Adafruit_HTU21DF.h>
 #include <Adafruit_SleepyDog.h>
 #include <Adafruit_VEML6070.h>
+#include <Adafruit_SI1145.h>
 /************ Radio Setup ***************/
 
 // Change to 915.0 or other frequency, must match RX's freq!
@@ -17,6 +18,7 @@
 
 //How many loops to make before restarting loop counter
 #define MAX_LOOPS 114
+//#define MAX_LOOPS 10
 
 #if defined (__AVR_ATmega32U4__) // Feather 32u4 w/Radio
   #define RFM69_CS      8
@@ -83,6 +85,8 @@ Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 //Driver for UV sensor
 Adafruit_VEML6070 uv = Adafruit_VEML6070();
 
+//Driver for the Ambient Light Sensor
+Adafruit_SI1145 als = Adafruit_SI1145();
 
 int16_t packetnum = 0;  // packet counter, we increment per xmission
 
@@ -148,6 +152,12 @@ void setup()
   //Init the UV sensor and then put it to sleep
   uv.begin(VEML6070_4_T);
   uv.sleep(true);
+
+  //Init the Ambient Light Sensor
+  if (!als.begin()) {
+    Serial.println("Couldn't find ambient light sensor!");
+    while (1);
+  }
 }
 
 
@@ -158,16 +168,19 @@ volatile bool rain_flag = false;
 uint8_t loop_counter = 0;
 
 void loop() {
-  delay(500);  // Wait 1 second between transmits, could also 'sleep' here!
-  //Watchdog.sleep(500);
+//  delay(500);  // Wait 1 second between transmits, could also 'sleep' here!
+  Watchdog.sleep(500);
 
   //Start a conversion a few loops before we send our packet to give it time to complete and for us to read
   if (MAX_LOOPS - 3 == loop_counter) 
   {
-    //Wake up the sensor
+    //Wake up the uv sensor
     uv.sleep(false);
     //Start reading
     uv.begin(VEML6070_4_T);
+
+    //Wake up the ambient light sensor and start a reading
+    als.startConversion();
   }
   
   
@@ -180,12 +193,15 @@ void loop() {
     Serial.println();
 
     //Initialize the payload
-    byte radiopacket[5] = "";
+    byte radiopacket[7] = "";
     generate_unique_id(radiopacket);
-    radiopacket[4] = 1;
+    //Sensor ID 10 is WS1 Rain Gauge Tip Bool
+    radiopacket[4] = 0;
+    radiopacket[5] = 10;
+    radiopacket[6] = 1;
 
     // Send a message to the DESTINATION!
-    if (rf69_manager.sendtoWait((uint8_t *)radiopacket, 5, DEST_ADDRESS)) {
+    if (rf69_manager.sendtoWait((uint8_t *)radiopacket, 7, DEST_ADDRESS)) {
       //Blink if we got an ACK
       Blink(LED, 80, 2);
     } else {
@@ -211,69 +227,132 @@ void loop() {
     Serial.print("VBat: " ); Serial.println(measuredvbat);
 
     //Read the temp and humidity
-    float htu_temp = htu.readTemperature();
+    float htu_temp = (htu.readTemperature()*1.8)+32;
     float htu_humidity = htu.readHumidity();
     Serial.print("Temp: "); Serial.print(htu_temp);
     Serial.print("\t\tHum: "); Serial.println(htu_humidity);
 
     //Read the UV sensor
     uint16_t uv_val =  uv.readUV();
-    //From the application note, with an Rset of 270k and a sampling of 4T
+    //From the application note, with an Rset of 270k and a sampling of 4T it was approx 747 value per uv index
     //This isn't a perfect translation from that application note, but probably close enough
-    uint8_t uv_index = 0;
-    if ( uv_val > 747 && uv_val < 1494 ) {
-      uv_index = 1;
-    } else if ( uv_val > 1493 && uv_val < 2241 ) {
-      uv_index = 2;
-    } else if ( uv_val > 2240 && uv_val < 2988 ) {
-      uv_index = 3;
-    } else if ( uv_val > 2987 && uv_val < 3735 ) {
-      uv_index = 4;
-    } else if ( uv_val > 3734 && uv_val < 4484 ) {
-      uv_index = 5;
-    } else if ( uv_val > 4483 && uv_val < 5229 ) {
-      uv_index = 6;
-    } else if ( uv_val > 5228 && uv_val < 5977 ) {
-      uv_index = 7;
-    } else if ( uv_val > 5976 && uv_val < 6723 ) {
-      uv_index = 8;
-    } else if ( uv_val > 6722 && uv_val < 7470 ) {
-      uv_index = 9;
-    } else if ( uv_val > 7469 && uv_val < 8217 ) {
-      uv_index = 10;
-    } else if ( uv_val > 8216 ) {
-      uv_index = 11;
-    }
+    float uv_index = ((float)uv_val)/747;
+//    if ( uv_val > 747 && uv_val < 1494 ) {
+//      uv_index = 1;
+//    } else if ( uv_val > 1493 && uv_val < 2241 ) {
+//      uv_index = 2;
+//    } else if ( uv_val > 2240 && uv_val < 2988 ) {
+//      uv_index = 3;
+//    } else if ( uv_val > 2987 && uv_val < 3735 ) {
+//      uv_index = 4;
+//    } else if ( uv_val > 3734 && uv_val < 4484 ) {
+//      uv_index = 5;
+//    } else if ( uv_val > 4483 && uv_val < 5229 ) {
+//      uv_index = 6;
+//    } else if ( uv_val > 5228 && uv_val < 5977 ) {
+//      uv_index = 7;
+//    } else if ( uv_val > 5976 && uv_val < 6723 ) {
+//      uv_index = 8;
+//    } else if ( uv_val > 6722 && uv_val < 7470 ) {
+//      uv_index = 9;
+//    } else if ( uv_val > 7469 && uv_val < 8217 ) {
+//      uv_index = 10;
+//    } else if ( uv_val > 8216 ) {
+//      uv_index = 11;
+//    }
     
     Serial.print("UV: "); Serial.print(uv_val); Serial.print(" Index: "); Serial.println(uv_index);
-    
+
+    //Read the Ambient Light Sensor
+    uint16_t als_uv = als.readUV();
+    uint16_t vis_ir = als.readVisible();
+    uint16_t ir = als.readIR();
+
+    //This is an adapted version of the equation from the AN523 application note
+    //Lux level = [ [(ALS visible reading) - (ALS visible dark reading)] x (ALS visible coefficient) + [ (ALSIR reading) - (ALS IR dark reading)] x (ALS IR coefficient) ] x gain correction
+    //In our setup the ALS Visible and ALS IR are zero so we can remove those multiplications, we also put the sensor in high gain mode which reduces the values by 14.5 so we have to multiply that back in
+    //The dark readings were aquired by putting the sensor in as dark a box as possible
+    //We then cast it to a 4byte int because the decimal precision is worthless for this measurement
+    uint32_t lux = (uint32_t)((5.41f * 14.5f * (vis_ir-259)) + (-0.08f * 14.5f * (ir-253)));
+
+    Serial.print("UV: "); Serial.print(als_uv); Serial.print(" Vis: "); Serial.print(vis_ir); Serial.print(" IR: "); Serial.print(ir); Serial.print(" Lux: "); Serial.println(lux);
   
     //Initialize the payload
-    byte radiopacket[11] = "";
+    byte radiopacket[45] = "";
   
     generate_unique_id(radiopacket);
   
     Serial.print("ID Bytes: "); Serial.print((byte)radiopacket[0]); Serial.print(" "); Serial.print((byte)radiopacket[1]);Serial.print(" ");Serial.print((byte)radiopacket[2]);Serial.print(" ");Serial.println((byte)radiopacket[3]);
-    
+
+    //Sensor ID 1 is WS1 Batt Voltage TwoByteFloat
+    radiopacket[4] = 0;
+    radiopacket[5] = 1;
     //Break the battery voltage up into one byte for the 1's place
-    radiopacket[4] = (byte) measuredvbat;
+    radiopacket[6] = (byte) measuredvbat;
     //And 1 byte for the tenths and hundredths
-    radiopacket[5] = (byte)((measuredvbat - radiopacket[4]) * 100);
-  
-    radiopacket[6] = (byte) htu_temp;
-    radiopacket[7] = (byte)((htu_temp - radiopacket[6]) * 100);
-  
-    radiopacket[8] = (byte) htu_humidity;
-    radiopacket[9] = (byte)((htu_humidity - radiopacket[8])*100);
+    radiopacket[7] = (byte)((measuredvbat - radiopacket[6]) * 100);
+
+    //Sensor ID 2 is WS1 Temp TwoByteFloat
+    radiopacket[8] = 0;
+    radiopacket[9] = 2;
+    radiopacket[10] = (byte) htu_temp;
+    radiopacket[11] = (byte)((htu_temp - radiopacket[10]) * 100);
+
+    //Sensor ID 3 is WS1 Humidity TwoByteFloat
+    radiopacket[12] = 0;
+    radiopacket[13] = 3;
+    radiopacket[14] = (byte) htu_humidity;
+    radiopacket[15] = (byte)((htu_humidity - radiopacket[14])*100);
+
+    //Sensor ID 4 is WS1 UV Raw TwoByteInt
+    radiopacket[16] = 0;
+    radiopacket[17] = 4;
+    radiopacket[18] = uv_val >> 8;
+    radiopacket[19] = uv_val & 0xFF;
+
+    //Sensor ID 5 is WS1 UV Index TwoByteFloat
+    radiopacket[20] = 0;
+    radiopacket[21] = 5;
+    radiopacket[22] = (byte) uv_index;
+    radiopacket[23] = (byte)((uv_index - radiopacket[22]) * 100);
+
+    //Sensor ID 6 is WS1 ALS UV Index TwoByteFloat
+    radiopacket[24] = 0;
+    radiopacket[25] = 6;
+    radiopacket[26] = (byte)(als_uv/100);
+    radiopacket[27] = (byte)((((float)als_uv/100) - radiopacket[26]) * 100);
+
+    //Sensor ID 7 is WS1 ALS Vis Light Raw TwoByteInt
+    radiopacket[28] = 0;
+    radiopacket[29] = 7;
+    radiopacket[30] = vis_ir >> 8;
+    radiopacket[31] = vis_ir & 0xFF;
+
+    //Sensor ID 8 is WS1 ALS IR Light Raw TwoByteInt
+    radiopacket[32] = 0;
+    radiopacket[33] = 8;
+    radiopacket[34] = ir >> 8;
+    radiopacket[35] = ir & 0xFF;
+
+    //Sensor ID 9 is WS1 ALS Lux FourByteInt
+    radiopacket[36] = 0;
+    radiopacket[37] = 9;
+    radiopacket[38] = lux >> 24 & 0xFF;
+    radiopacket[39] = lux >> 16 & 0xFF;
+    radiopacket[40] = lux >> 8 & 0xFF;
+    radiopacket[41] = lux & 0xFF;
     
     //Also send back an indicator of retransmissions
-    radiopacket[10] = (byte) rf69_manager.retransmissions();
+    //Sensor ID 11 is WS1 retransmissions SingleByteInt
+    radiopacket[42] = 0;
+    radiopacket[43] = 11;
+    radiopacket[44] = (byte) rf69_manager.retransmissions();
     //Reset the counter
     rf69_manager.resetRetransmissions();
     
       
     // Send a message to the DESTINATION!
-    if (rf69_manager.sendtoWait((uint8_t *)radiopacket, 11, DEST_ADDRESS)) {
+    if (rf69_manager.sendtoWait((uint8_t *)radiopacket, 45, DEST_ADDRESS)) {
       //Blink if we got an ACK
       Blink(LED, 40, 4);
     } else {
