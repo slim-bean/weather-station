@@ -121,6 +121,7 @@ void setup()
   rf69.setTxPower(20, true);  // range from 14-20 for power, 2nd arg must be true for 69HCW
 
   // The encryption key has to be the same as the one in the server
+  //FIXME this needs to go in separate file
   uint8_t key[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
   rf69.setEncryptionKey(key);
@@ -273,7 +274,11 @@ void loop() {
     //In our setup the ALS Visible and ALS IR are zero so we can remove those multiplications, we also put the sensor in high gain mode which reduces the values by 14.5 so we have to multiply that back in
     //The dark readings were aquired by putting the sensor in as dark a box as possible
     //We then cast it to a 4byte int because the decimal precision is worthless for this measurement
+    
     uint32_t lux = (uint32_t)((5.41f * 14.5f * (vis_ir-259)) + (-0.08f * 14.5f * (ir-253)));
+    if (lux > 250000){
+      lux = 0;
+    }
 
     Serial.print("UV: "); Serial.print(als_uv); Serial.print(" Vis: "); Serial.print(vis_ir); Serial.print(" IR: "); Serial.print(ir); Serial.print(" Lux: "); Serial.println(lux);
   
