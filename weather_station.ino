@@ -369,6 +369,13 @@ void loop() {
     
     //Put the UV sensor to sleep
     uv.sleep(true);
+
+    //Have been having problems with the SI1145 outputing all zeros (even in total darkness it never outputs all zeros)
+    //So if that happens, try to reset the device params to fix it:
+    if (als_uv == 0 && vis_ir == 0 && ir == 0 ){
+      als.begin();
+    }
+    
   }
 
   loop_counter++;
