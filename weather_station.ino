@@ -6,6 +6,7 @@
 #include <Adafruit_SleepyDog.h>
 #include <Adafruit_VEML6070.h>
 #include <Adafruit_SI1145.h>
+#include "key.h"
 /************ Radio Setup ***************/
 
 // Change to 915.0 or other frequency, must match RX's freq!
@@ -121,9 +122,7 @@ void setup()
   rf69.setTxPower(20, true);  // range from 14-20 for power, 2nd arg must be true for 69HCW
 
   // The encryption key has to be the same as the one in the server
-  //FIXME this needs to go in separate file
-  uint8_t key[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+  // Create a separate file alongside this one named "key.h" with a 16 byte array uint8_t key[] = { 0x01, 0x02, 0x03....
   rf69.setEncryptionKey(key);
   
   pinMode(LED, OUTPUT);
