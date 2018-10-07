@@ -141,6 +141,9 @@ void setup()
   //Increase the retries from the default 3 to 10
   rf69_manager.setRetries(10);
 
+  //Increase the timeout for an ack from the default of 200ms to 1000ms
+  rf69_manager.setTimeout(1000);
+
 
   //Initialize temp/humidity sensor
   sht31.begin(0x44);
