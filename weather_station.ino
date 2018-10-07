@@ -2,7 +2,7 @@
 #include <RH_RF69.h>
 #include <RHReliableDatagram.h>
 #include <Wire.h>
-#include <Adafruit_HTU21DF.h>
+#include <Adafruit_SHT31.h>
 #include <Adafruit_SleepyDog.h>
 #include <Adafruit_VEML6070.h>
 #include <Adafruit_SI1145.h>
@@ -80,7 +80,7 @@ RH_RF69 rf69(RFM69_CS, RFM69_INT);
 RHReliableDatagram rf69_manager(rf69, MY_ADDRESS);
 
 //Driver for humidity sensor
-Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
 
 //Driver for UV sensor
 Adafruit_VEML6070 uv = Adafruit_VEML6070();
@@ -142,10 +142,8 @@ void setup()
   rf69_manager.setRetries(10);
 
 
-  if (!htu.begin()) {
-    Serial.println("Couldn't find sensor!");
-    while (1);
-  }
+  //Initialize temp/humidity sensor
+  sht31.begin(0x44);
 
   pinMode(RAIN_GAUGE_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(RAIN_GAUGE_PIN), blink_interrupt, FALLING);
@@ -228,8 +226,8 @@ void loop() {
     Serial.print("VBat: " ); Serial.println(measuredvbat);
 
     //Read the temp and humidity
-    float htu_temp = (htu.readTemperature()*1.8)+32;
-    float htu_humidity = htu.readHumidity();
+    float htu_temp = (sht31.readTemperature()*1.8)+32;
+    float htu_humidity = sht31.readHumidity();
     Serial.print("Temp: "); Serial.print(htu_temp);
     Serial.print("\t\tHum: "); Serial.println(htu_humidity);
 
